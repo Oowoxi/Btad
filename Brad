@@ -1,0 +1,244 @@
+javascript: (function () {
+  if (window.wpmSolverBotExists) {
+    alert("سكربت مساعد Troy شغال بالفعل!");
+    return;
+  }
+  window.wpmSolverBotExists = window.solverBotEnabled = true;
+
+  // 1. إنشاء زر الإعادة العائم (الزاوية اليمنى العليا)
+  const restoreBtn = document.createElement("div");
+  Object.assign(restoreBtn.style, {
+    position: "fixed", top: "10px", right: "10px", zIndex: "100001",
+    backgroundColor: "#3498db", color: "#fff", padding: "6px 10px",
+    borderRadius: "20px", boxShadow: "0 2px 10px rgba(0,0,0,0.5)",
+    fontFamily: "Arial, sans-serif", fontSize: "11px", cursor: "pointer",
+    fontWeight: "bold", display: "none", direction: "rtl"
+  });
+  restoreBtn.textContent = "👁️ إظهار اللوحة";
+  document.body.appendChild(restoreBtn);
+
+  // 2. إنشاء واجهة التحكم
+  const panel = document.createElement("div");
+  Object.assign(panel.style, {
+    position: "fixed", top: "10px", right: "10px", zIndex: "100000",
+    backgroundColor: "#1a1a1a", color: "#fff", padding: "12px",
+    borderRadius: "10px", boxShadow: "0 4px 20px rgba(0,0,0,0.6)",
+    fontFamily: "Arial, sans-serif", fontSize: "12px", direction: "rtl",
+    width: "220px", border: "1px solid #3498db"
+  });
+  panel.innerHTML = `
+    <div style="font-weight:bold; text-align:center; margin-bottom:8px; color:#3498db; border-bottom:1px solid #333; padding-bottom:5px; font-size:13px;">
+      ⚡ مساعد Troy التلقائي
+    </div>
+    
+    <div style="margin-bottom:8px; background:#2c1a1a; padding:5px; border-radius:4px; border-right:3px solid #e74c3c;">
+      <div style="color:#e74c3c; font-weight:bold; margin-bottom:6px; text-align:center; font-size:11px;">🎯 التحكم بالسرعة (WPM)</div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:11px; color:#ccc;">أدنى:</span>
+        <input id="min-wpm-input" type="number" placeholder="70" style="width:45px; background:#111; color:#fff; border:1px solid #e74c3c; border-radius:4px; padding:2px; text-align:center; font-weight:bold; font-size:11px; outline:none;" />
+        <span style="font-size:11px; color:#ccc;">أقصى:</span>
+        <input id="max-wpm-input" type="number" placeholder="105" style="width:45px; background:#111; color:#fff; border:1px solid #e74c3c; border-radius:4px; padding:2px; text-align:center; font-weight:bold; font-size:11px; outline:none;" />
+      </div>
+    </div>
+
+    <div style="margin-bottom:8px; background:#2c3e50; padding:6px; border-radius:4px; border-right:3px solid #3498db;">
+      <div style="color:#ecf0f1; font-weight:bold; margin-bottom:4px; font-size:11px;">✍️ ما بعد المقالة:</div>
+      <input type="text" id="post-msg-1" placeholder="الرسالة الأولى..." style="width:100%; box-sizing:border-box; background:#111; color:#fff; border:1px solid #34495e; border-radius:4px; padding:4px; font-size:11px; margin-bottom:4px; outline:none;" />
+      
+      <div id="msg-2-container" style="display:none;">
+        <input type="text" id="post-msg-2" placeholder="الرسالة الثانية..." style="width:100%; box-sizing:border-box; background:#111; color:#fff; border:1px solid #34495e; border-radius:4px; padding:4px; font-size:11px; margin-bottom:4px; outline:none;" />
+      </div>
+      <button id="add-msg-2-btn" style="width:100%; background:#8e44ad; color:#fff; border:none; padding:4px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:10px;">+ رسالة ثانية</button>
+    </div>
+    
+    <button id="toggle-solver-btn" style="width:100%; margin-top:4px; background:#d35400; color:#fff; border:none; padding:5px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px;">إيقاف مؤقت للسكربت</button>
+    
+    <div style="display:flex; gap:5px; margin-top:5px;">
+      <button id="hide-panel-btn" style="flex:1; background:#7f8c8d; color:#fff; border:none; padding:5px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px;">👁️ إخفاء اللوحة</button>
+      <button id="destroy-script-btn" style="flex:1; background:#c0392b; color:#fff; border:none; padding:5px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px;">🛑 إطفاء</button>
+    </div>
+  `;
+  document.body.appendChild(panel);
+
+  const toggleBtn = document.getElementById("toggle-solver-btn");
+  const hideBtn = document.getElementById("hide-panel-btn");
+  const destroyBtn = document.getElementById("destroy-script-btn");
+  const addMsg2Btn = document.getElementById("add-msg-2-btn");
+  const msg2Container = document.getElementById("msg-2-container");
+
+  let currentTypeInterval = null; 
+  let sendTimeout = null;
+  let isTypingSequence = false; 
+
+  hideBtn.addEventListener("click", () => { panel.style.display = "none"; restoreBtn.style.display = "block"; });
+  restoreBtn.addEventListener("click", () => { restoreBtn.style.display = "none"; panel.style.display = "block"; });
+  
+  addMsg2Btn.addEventListener("click", () => {
+    msg2Container.style.display = "block";
+    addMsg2Btn.style.display = "none";
+  });
+
+  destroyBtn.addEventListener("click", () => { 
+    window.wpmSolverBotExists = false; window.solverBotEnabled = false;
+    clearTimeout(sendTimeout); clearTimeout(currentTypeInterval);
+    if (observer) observer.disconnect();
+    panel.remove(); restoreBtn.remove();
+    alert("تم إطفاء السكربت نهائياً! 🛑");
+  });
+
+  toggleBtn.addEventListener("click", () => {
+    window.solverBotEnabled = !window.solverBotEnabled;
+    if (window.solverBotEnabled) {
+      toggleBtn.textContent = "إيقاف مؤقت للسكربت"; toggleBtn.style.backgroundColor = "#d35400";
+    } else {
+      toggleBtn.textContent = "تشغيل السكربت"; toggleBtn.style.backgroundColor = "#2ecc71";
+      clearTimeout(sendTimeout); clearTimeout(currentTypeInterval);
+      isTypingSequence = false;
+    }
+  });
+
+  function getChatInput() { return document.querySelector("#tbox") || document.querySelector("input[type='text']") || document.querySelector("textarea") || document.querySelector(".chat-input"); }
+  function getChatSendButton() { return document.querySelector(".btn-primary") || document.querySelector("#sendbtn") || document.querySelector("button[type='submit']") || document.querySelector(".send-btn"); }
+  function getChatContainer() { return document.querySelector("#d2") || document.querySelector(".chat-messages") || document.querySelector("#chat-room") || document.body; }
+
+  function executeFinalSend() {
+    const btn = getChatSendButton();
+    const input = getChatInput();
+    if (!input) return;
+    if (typeof Tsend_TIGERHOST_UPLOAD === "function") Tsend_TIGERHOST_UPLOAD();
+    else if (btn) btn.click();
+    else input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, keyCode: 13, key: "Enter" }));
+  }
+
+  function simulateHumanTyping(text, totalDuration, callback) {
+    clearTimeout(currentTypeInterval); 
+    const input = getChatInput();
+    if (!input) { if (callback) callback(); return; }
+    input.value = ""; 
+    
+    let weights = [];
+    let totalWeight = 0;
+    
+    for (let i = 0; i < text.length; i++) {
+      let w = Math.random() * 1.6 + 0.2; 
+      if (text[i] === ' ' || (i > 0 && text[i-1] === ' ')) { w += 0.8; }
+      weights.push(w); 
+      totalWeight += w;
+    }
+
+    let index = 0;
+    function typeNextChar() {
+      if (index < text.length) {
+        input.value += text[index];
+        ["input", "change"].forEach((ev) => input.dispatchEvent(new Event(ev, { bubbles: true })));
+        
+        let currentDelay = (weights[index] / totalWeight) * totalDuration;
+        index++;
+        currentTypeInterval = setTimeout(typeNextChar, currentDelay);
+      } else {
+        if (callback) callback();
+      }
+    }
+    typeNextChar();
+  }
+
+  const chatBox = getChatContainer();
+  if (!chatBox) return;
+
+  document.addEventListener("keydown", (e) => {
+    if (e.keyCode === 13) { clearTimeout(sendTimeout); clearTimeout(currentTypeInterval); isTypingSequence = false; }
+  }, true);
+
+  const observer = new MutationObserver((mutations) => {
+    if (!window.solverBotEnabled || isTypingSequence) return; 
+
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        
+        const userNode = node.querySelector(".uzr") || node.querySelector(".name") || node.querySelector("b");
+        const senderName = userNode ? userNode.textContent.trim() : "";
+        if (!senderName.includes("Troy")) continue;
+
+        const msgNode = node.querySelector(".u-msg") || node.querySelector(".msg") || node.querySelector(".text") || node;
+        let msgText = msgNode.textContent || "";
+        
+        if (msgText.includes("ك/د") || msgText.includes("ث)") || /^\(\d+\s*ك\/د\)/.test(msgText.trim())) continue;
+        if (msgText.includes("#") && /\d/.test(msgText)) continue;
+
+        const hasBrackets = msgText.includes("{") || msgText.includes("}");
+        const hasPunctuation = msgText.includes(".") || msgText.includes("،") || msgText.includes(",");
+        if (!hasBrackets || !hasPunctuation) continue;
+
+        // --- التحديث الجديد لتنظيف التمديد والحركات ---
+        // 1. مسح أي تمديد (ـ) بشكل صريح
+        let answer = msgText.replace(/ـ/g, ""); 
+        // 2. تصفية لإبقاء الحروف العربية والمسافات فقط (تستثني الحركات، الرموز، وأي شيء آخر)
+        answer = answer.replace(/[^\u0621-\u063A\u0641-\u064A\s]/g, "");
+        // 3. تنظيف المسافات الزائدة
+        answer = answer.replace(/\s+/g, " ").trim();
+        
+        if (!answer) continue;
+
+        let minVal = parseInt(document.getElementById("min-wpm-input").value, 10) || 70;
+        let maxVal = parseInt(document.getElementById("max-wpm-input").value, 10) || 105;
+        if (minVal > maxVal) { let temp = minVal; minVal = maxVal; maxVal = temp; }
+        
+        let targetWpm = Math.floor(Math.random() * (maxVal - minVal + 1)) + minVal;
+
+        const input1 = document.getElementById("post-msg-1");
+        const input2 = document.getElementById("post-msg-2");
+        let msg1 = input1 ? input1.value.trim() : "";
+        let msg2 = input2 ? input2.value.trim() : "";
+        
+        if (input1) input1.value = "";
+        if (input2) input2.value = "";
+
+        isTypingSequence = true; 
+
+        let finalWordsCount = answer.split(/\s+/).filter(Boolean).length || 1;
+        let durSeconds = (finalWordsCount * 60) / targetWpm;
+        let typingDuration = (durSeconds * 1000) - 100;
+        if (typingDuration < 200) typingDuration = 200;
+
+        let comprehensionDelay = Math.floor(Math.random() * 150) + 400; 
+
+        function calcDurationForMsg(msgText) {
+          let words = msgText.split(/\s+/).filter(Boolean).length || 1;
+          return ((words * 60) / targetWpm) * 1000;
+        }
+
+        sendTimeout = setTimeout(() => {
+          if (!window.solverBotEnabled) { isTypingSequence = false; return; }
+          
+          simulateHumanTyping(answer, typingDuration, () => {
+            executeFinalSend(); 
+            
+            if (msg1) {
+              setTimeout(() => {
+                simulateHumanTyping(msg1, calcDurationForMsg(msg1), () => {
+                  executeFinalSend();
+
+                  if (msg2) {
+                    setTimeout(() => {
+                      simulateHumanTyping(msg2, calcDurationForMsg(msg2), () => {
+                        executeFinalSend();
+                        isTypingSequence = false; 
+                      });
+                    }, 300 + Math.random() * 200);
+                  } else {
+                    isTypingSequence = false; 
+                  }
+                });
+              }, 300 + Math.random() * 200);
+            } else {
+              isTypingSequence = false; 
+            }
+          });
+        }, comprehensionDelay);
+      }
+    }
+  });
+
+  observer.observe(chatBox, { childList: true, subtree: true });
+})();
