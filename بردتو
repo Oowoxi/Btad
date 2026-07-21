@@ -1,37 +1,59 @@
 javascript: (function () {
-  if (document.getElementById('auto-typer-ui')) return;
+  // إذا الواجهة أو زر الإخراج موجود، لا تكرر إنشائه
+  if (document.getElementById('auto-typer-ui') || document.getElementById('typer-toggle-btn')) return;
   
-  // 1. واجهة التحكم
+  // 1. بناء واجهة المستخدم (UI) بتصميم أنيق ومحسن
   let ui = document.createElement('div');
   ui.id = 'auto-typer-ui';
-  ui.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:#fff;border:2px solid #545E6B;padding:15px;border-radius:8px;box-shadow:0 4px 8px rgba(0,0,0,0.2);width:260px;direction:rtl;font-family:sans-serif;color:#333;';
+  ui.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:#ffffff;border:1px solid #e1e4e8;padding:16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.12);width:260px;direction:rtl;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#24292e;transition:all 0.3s ease;';
   ui.innerHTML = `
-    <h3 style="margin-top:0;font-size:16px;color:#545E6B;text-align:center;">إعدادات المراقب الآلي</h3>
-    <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid #eaecef;padding-bottom:8px;">
+      <h3 style="margin:0;font-size:15px;color:#2c3e50;font-weight:700;">مراقب رسائل تروي</h3>
+      <span id="typer-close-x" style="cursor:pointer;color:#95a5a6;font-size:16px;font-weight:bold;padding:0 4px;">&times;</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
       <div style="width:48%;">
-        <label style="font-size:12px;">أدنى سرعة (ms):</label>
-        <input type="number" id="typer-min" value="90" style="width:100%;padding:3px;box-sizing:border-box;border:1px solid #ccc;border-radius:4px;">
+        <label style="display:block;font-size:11px;color:#606f7b;margin-bottom:4px;font-weight:600;">أدنى سرعة (ms)</label>
+        <input type="number" id="typer-min" value="90" style="width:100%;padding:6px 8px;box-sizing:border-box;border:1px solid #d1d5da;border-radius:6px;font-size:13px;outline:none;">
       </div>
       <div style="width:48%;">
-        <label style="font-size:12px;">أقصى سرعة (ms):</label>
-        <input type="number" id="typer-max" value="150" style="width:100%;padding:3px;box-sizing:border-box;border:1px solid #ccc;border-radius:4px;">
+        <label style="display:block;font-size:11px;color:#606f7b;margin-bottom:4px;font-weight:600;">أقصى سرعة (ms)</label>
+        <input type="number" id="typer-max" value="150" style="width:100%;padding:6px 8px;box-sizing:border-box;border:1px solid #d1d5da;border-radius:6px;font-size:13px;outline:none;">
       </div>
     </div>
-    <button id="typer-start-monitor" style="width:100%;padding:8px;background:#438ac7;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-bottom:5px;font-weight:bold;">بدء المراقبة</button>
-    <button id="typer-close" style="width:100%;padding:5px;background:#d9534f;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">إغلاق</button>
-    <div id="typer-status" style="margin-top:10px;font-size:12px;color:#d9534f;text-align:center;font-weight:bold;">المراقبة متوقفة</div>
+    <button id="typer-start-monitor" style="width:100%;padding:9px;background:#2ecc71;color:#fff;border:none;border-radius:6px;cursor:pointer;margin-bottom:8px;font-weight:bold;font-size:13px;transition:background 0.2s;">بدء المراقبة</button>
+    <button id="typer-close" style="width:100%;padding:7px;background:#e74c3c;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;transition:background 0.2s;">إغلاق</button>
+    <div id="typer-status" style="margin-top:10px;font-size:11px;color:#e74c3c;text-align:center;font-weight:bold;">المراقبة متوقفة</div>
   `;
   document.body.appendChild(ui);
+
+  // 2. إنشاء زر الفتح الأزرق (بيكون مخفي لين تضغط إغلاق)
+  let toggleBtn = document.createElement('button');
+  toggleBtn.id = 'typer-toggle-btn';
+  toggleBtn.innerText = 'فتح المراقب';
+  toggleBtn.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99998;background:#3498db;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:none;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
+  document.body.appendChild(toggleBtn);
 
   let isMonitoring = false;
   let isTyping = false;
   let observer = null;
 
-  document.getElementById('typer-close').onclick = function () {
-    if (observer) observer.disconnect();
-    ui.remove();
+  // زر الإغلاق (يخفي القائمة ويظهر الزر الأزرق فوق يمين)
+  function closeUI() {
+    ui.style.display = 'none';
+    toggleBtn.style.display = 'block';
+  }
+
+  document.getElementById('typer-close').onclick = closeUI;
+  document.getElementById('typer-close-x').onclick = closeUI;
+
+  // الضغط على الزر الأزرق لإظهار القائمة مرة أخرى
+  toggleBtn.onclick = function () {
+    ui.style.display = 'block';
+    toggleBtn.style.display = 'none';
   };
 
+  // 3. بدء المراقبة
   document.getElementById('typer-start-monitor').onclick = function () {
     if (isMonitoring) return;
     
@@ -42,10 +64,14 @@ javascript: (function () {
     }
 
     isMonitoring = true;
-    document.getElementById('typer-status').innerText = 'يتم الآن مراقبة Troy...';
-    document.getElementById('typer-status').style.color = '#5cb85c';
-    document.getElementById('typer-start-monitor').style.background = '#ccc';
-    document.getElementById('typer-start-monitor').disabled = true;
+    let statusEl = document.getElementById('typer-status');
+    let startBtn = document.getElementById('typer-start-monitor');
+    
+    statusEl.innerText = 'يتم الآن مراقبة Troy...';
+    statusEl.style.color = '#27ae60';
+    startBtn.style.background = '#95a5a6';
+    startBtn.innerText = 'المراقبة تعمل بنجاح';
+    startBtn.disabled = true;
 
     observer = new MutationObserver((mutations) => {
       for (const m of mutations) {
@@ -64,7 +90,7 @@ javascript: (function () {
 
           let cleanMsg = msgText.replace(/^[:\s\-،,]+/, "").trim();
 
-          // التأكد أن الرسالة من تروي وتحتوي على أي من القوسين { أو ]
+          // التأكد أن الرسالة من تروي وتحتوي على القوس { أو ]
           if ((senderName.includes("Troy") || senderName.includes("تروي") || senderName.includes("troy")) && (cleanMsg.includes("{") || cleanMsg.includes("]"))) {
              if (!isTyping) processMessage(cleanMsg);
           }
@@ -75,9 +101,8 @@ javascript: (function () {
     observer.observe(chatBox, { childList: true, subtree: true }); 
   };
 
-  // معالجة الرسالة كاملة وتصفيتها من أي شيء ما عدا الحروف العربية
+  // 4. معالجة الرسالة وتصفيتها (الحروف العربية والمسافات فقط)
   function processMessage(text) {
-    // إزالة الأقواس والرموز والأرقام وكل شيء، ولا يبقى إلا الحروف العربية والمسافات
     let filteredText = text.replace(/[^\u0621-\u063A\u0641-\u064A\s]/g, '').replace(/\s+/g, ' ').trim();
     
     if (filteredText.length > 0) {
@@ -85,7 +110,7 @@ javascript: (function () {
     }
   }
 
-  // نظام الكتابة البشرية وإرسال الرسالة
+  // 5. نظام الكتابة البشرية وإرسال الرسالة
   function startTyping(text) {
     let chatInput = document.getElementById('tbox');
     if (!chatInput) {
