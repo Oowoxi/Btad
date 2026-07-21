@@ -1,0 +1,46 @@
+javascript:(function(){
+    /* إنشاء نافذة عائمة على الشاشة لعرض الأكواد لتناسب الجوال */
+    let dbg = document.getElementById('my-debug-box');
+    if(dbg) dbg.remove(); // مسح النافذة القديمة إن وجدت
+    
+    dbg = document.createElement('div');
+    dbg.id = 'my-debug-box';
+    dbg.style.cssText = 'position:fixed;top:5%;left:5%;width:90%;height:60%;background:#111;color:#0f0;z-index:99999;overflow-y:auto;padding:10px;font-family:monospace;font-size:12px;border:2px solid #0f0;direction:ltr;text-align:left;box-sizing:border-box;border-radius:8px;';
+    
+    // زر الإغلاق
+    dbg.innerHTML = '<button onclick="this.parentElement.remove()" style="background:#b30000;color:white;padding:8px;border:none;border-radius:4px;margin-bottom:10px;width:100%;font-weight:bold;">إغلاق نافذة الفحص</button><br><b style="color:#fff;">[ نظام فحص الأكواد يعمل ]</b><br><hr style="border-color:#333;">';
+    document.body.appendChild(dbg);
+    
+    // دالة لطباعة النصوص داخل النافذة العائمة
+    function logMsg(title, content) {
+        dbg.innerHTML += '<b style="color:#ffcc00;">' + title + ':</b><br><div style="word-wrap:break-word;background:#222;padding:5px;margin-top:5px;border:1px solid #444;">' + content + '</div><br><hr style="border-color:#333;">';
+        dbg.scrollTop = dbg.scrollHeight; // النزول لأسفل تلقائياً
+    }
+    
+    // 1. فحص واستخراج كود الإرسال Tsend
+    if(typeof Tsend !== 'undefined') {
+        logMsg('كود دالة Tsend', Tsend.toString().replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+    } else {
+        logMsg('كود دالة Tsend', 'لم يتم العثور على الدالة في هذه الصفحة.');
+    }
+    
+    // 2. مراقبة الرسائل الجديدة واستخراج كود الـ HTML الخاص بها
+    let chat = document.getElementById('d2');
+    if(chat) {
+        let obs = new MutationObserver(mutations => {
+            mutations.forEach(mutation => {
+                mutation.addedNodes.forEach(node => {
+                    if(node.nodeType === 1) { // التأكد أن العنصر هو HTML
+                        // تحويل الأقواس لتظهر كنص بدلاً من أن يتم تنفيذها
+                        let rawHTML = node.outerHTML.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        logMsg('رسالة جديدة (HTML)', rawHTML);
+                    }
+                });
+            });
+        });
+        obs.observe(chat, {childList:true, subtree:true});
+        logMsg('حالة المراقب', 'يعمل الآن... بانتظار ظهور أي رسالة جديدة في الشات (بما فيها رسائل تروي).');
+    } else {
+        logMsg('خطأ', 'لم يتم العثور على صندوق المحادثة #d2');
+    }
+})();
