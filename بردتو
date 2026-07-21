@@ -1,0 +1,137 @@
+javascript: (function () {
+  if (document.getElementById('auto-typer-ui')) return;
+  
+  // 1. واجهة التحكم
+  let ui = document.createElement('div');
+  ui.id = 'auto-typer-ui';
+  ui.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:#fff;border:2px solid #545E6B;padding:15px;border-radius:8px;box-shadow:0 4px 8px rgba(0,0,0,0.2);width:260px;direction:rtl;font-family:sans-serif;color:#333;';
+  ui.innerHTML = `
+    <h3 style="margin-top:0;font-size:16px;color:#545E6B;text-align:center;">إعدادات المراقب الآلي</h3>
+    <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+      <div style="width:48%;">
+        <label style="font-size:12px;">أدنى سرعة (ms):</label>
+        <input type="number" id="typer-min" value="90" style="width:100%;padding:3px;box-sizing:border-box;border:1px solid #ccc;border-radius:4px;">
+      </div>
+      <div style="width:48%;">
+        <label style="font-size:12px;">أقصى سرعة (ms):</label>
+        <input type="number" id="typer-max" value="150" style="width:100%;padding:3px;box-sizing:border-box;border:1px solid #ccc;border-radius:4px;">
+      </div>
+    </div>
+    <button id="typer-start-monitor" style="width:100%;padding:8px;background:#438ac7;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-bottom:5px;font-weight:bold;">بدء المراقبة</button>
+    <button id="typer-close" style="width:100%;padding:5px;background:#d9534f;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">إغلاق</button>
+    <div id="typer-status" style="margin-top:10px;font-size:12px;color:#d9534f;text-align:center;font-weight:bold;">المراقبة متوقفة</div>
+  `;
+  document.body.appendChild(ui);
+
+  let isMonitoring = false;
+  let isTyping = false;
+  let observer = null;
+
+  document.getElementById('typer-close').onclick = function () {
+    if (observer) observer.disconnect();
+    ui.remove();
+  };
+
+  document.getElementById('typer-start-monitor').onclick = function () {
+    if (isMonitoring) return;
+    
+    const chatBox = document.querySelector("#d2"); 
+    if (!chatBox) {
+      alert("لم يتم العثور على صندوق الشات #d2");
+      return;
+    }
+
+    isMonitoring = true;
+    document.getElementById('typer-status').innerText = 'يتم الآن مراقبة Troy...';
+    document.getElementById('typer-status').style.color = '#5cb85c';
+    document.getElementById('typer-start-monitor').style.background = '#ccc';
+    document.getElementById('typer-start-monitor').disabled = true;
+
+    observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType !== 1) continue;
+
+          const msgNode = node.querySelector(".u-msg") || node.querySelector(".msg") || node;
+          let msgText = msgNode.textContent || "";
+
+          const nameEl = node.querySelector(".u-name") || node.querySelector(".name") || node.querySelector("b") || node.querySelector("span");
+          const senderName = nameEl ? nameEl.textContent.trim().replace(/[:\s\-]/g, "") : "";
+
+          if (nameEl && msgText.includes(nameEl.textContent)) {
+            msgText = msgText.replace(nameEl.textContent, "");
+          }
+
+          let cleanMsg = msgText.replace(/^[:\s\-،,]+/, "").trim();
+
+          // التأكد أن الرسالة من تروي وتحتوي على أي من القوسين { أو ]
+          if ((senderName.includes("Troy") || senderName.includes("تروي") || senderName.includes("troy")) && (cleanMsg.includes("{") || cleanMsg.includes("]"))) {
+             if (!isTyping) processMessage(cleanMsg);
+          }
+        }
+      }
+    });
+    
+    observer.observe(chatBox, { childList: true, subtree: true }); 
+  };
+
+  // معالجة الرسالة كاملة وتصفيتها من أي شيء ما عدا الحروف العربية
+  function processMessage(text) {
+    // إزالة الأقواس والرموز والأرقام وكل شيء، ولا يبقى إلا الحروف العربية والمسافات
+    let filteredText = text.replace(/[^\u0621-\u063A\u0641-\u064A\s]/g, '').replace(/\s+/g, ' ').trim();
+    
+    if (filteredText.length > 0) {
+      startTyping(filteredText);
+    }
+  }
+
+  // نظام الكتابة البشرية وإرسال الرسالة
+  function startTyping(text) {
+    let chatInput = document.getElementById('tbox');
+    if (!chatInput) {
+      alert('لم يتم العثور على مربع tbox!');
+      return;
+    }
+
+    isTyping = true;
+    chatInput.value = '';
+    chatInput.focus();
+    let i = 0;
+    
+    let minS = parseInt(document.getElementById('typer-min').value) || 90;
+    let maxS = parseInt(document.getElementById('typer-max').value) || 150;
+
+    function typeChar() {
+      if (i < text.length) {
+        chatInput.value += text.charAt(i);
+        chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+        chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+        i++;
+        
+        let randomSpeed = Math.floor(Math.random() * (maxS - minS + 1)) + minS;
+        setTimeout(typeChar, randomSpeed);
+      } else {
+        setTimeout(() => {
+          const sendBtns = Array.from(document.querySelectorAll(".btn-primary, .fa-send"));
+          const mainSendBtn = sendBtns.find(b => 
+            (b.textContent.includes("إرسال") || b.className.includes("fa-send")) && 
+            !b.className.includes("sndpm") && 
+            !b.className.includes("sndbc") &&
+            !b.className.includes("rsave") 
+          );
+
+          if (mainSendBtn) {
+            mainSendBtn.click();
+          } else {
+            chatInput.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, keyCode: 13, key: "Enter" }));
+            chatInput.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, cancelable: true, keyCode: 13, key: "Enter" }));
+          }
+          
+          isTyping = false;
+        }, 150);
+      }
+    }
+    
+    typeChar();
+  }
+})();
