@@ -1,0 +1,76 @@
+javascript: (function () {
+  // منع تشغيل السكربت أكثر من مرة
+  if (window.troyCatcherEnabled) {
+    alert("صائد تروي شغال بالفعل!");
+    return;
+  }
+  window.troyCatcherEnabled = true;
+
+  // دالة الإرسال (مأخوذة من كودك الممتاز لضمان التوافق مع الشات)
+  function sendToChat(text) {
+    const input = document.querySelector("#tbox");
+    if (!input) return;
+
+    input.value = text;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+
+    setTimeout(() => {
+      const sendBtns = Array.from(document.querySelectorAll(".btn-primary, .fa-send"));
+      const mainSendBtn = sendBtns.find(b => 
+        (b.textContent.includes("إرسال") || b.className.includes("fa-send")) && 
+        !b.className.includes("sndpm") && 
+        !b.className.includes("sndbc") &&
+        !b.className.includes("rsave") 
+      );
+
+      if (mainSendBtn) {
+        mainSendBtn.click();
+      } else {
+        input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, keyCode: 13, key: "Enter" }));
+        input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, cancelable: true, keyCode: 13, key: "Enter" }));
+      }
+    }, 50); // سرعة الإرسال 50 جزء من الثانية (تقدر تقللها لو تبي أسرع)
+  }
+
+  // تحديد صندوق الشات
+  const chatBox = document.querySelector("#d2");
+  if (!chatBox) {
+    alert("لم يتم العثور على صندوق الشات #d2");
+    return;
+  }
+
+  // مراقب الشات
+  new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        if (node.nodeType !== 1) continue;
+
+        const msgNode = node.querySelector(".u-msg") || node.querySelector(".msg") || node;
+        let msgText = msgNode.textContent || "";
+
+        const nameEl = node.querySelector(".u-name") || node.querySelector(".name") || node.querySelector("b") || node.querySelector("span");
+        const senderName = nameEl ? nameEl.textContent.trim().replace(/[:\s\-]/g, "") : "";
+
+        // تنظيف النص من اسم المرسل
+        if (nameEl && msgText.includes(nameEl.textContent)) {
+          msgText = msgText.replace(nameEl.textContent, "");
+        }
+
+        let cleanMsg = msgText.replace(/^[:\s\-،,]+/, "").trim();
+
+        // 🎯 صيد رسائل Troy
+        if (senderName.includes("Troy") || senderName.includes("تروي") || senderName.includes("troy")) {
+          // البحث عن الكلمة بين الأقواس المعكوفة
+          const match = cleanMsg.match(/\{(.*?)\}/);
+          if (match) {
+            const extractedWord = match[1].trim(); // الكلمة الصافية
+            sendToChat(extractedWord); // إرسالها فوراً
+          }
+        }
+      }
+    }
+  }).observe(chatBox, { childList: true, subtree: true });
+
+  alert("تم تشغيل صائد تروي ⚡! أي كلمة بين { } بيلقطها ويرسلها تلقائياً.");
+})();
