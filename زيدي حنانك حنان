@@ -1,0 +1,221 @@
+javascript: (function () {
+  if (document.getElementById('auto-typer-ui') || document.getElementById('typer-toggle-btn')) return;
+  
+  let ui = document.createElement('div');
+  ui.id = 'auto-typer-ui';
+  ui.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:#13131a;border:1px solid #2c2c3d;padding:18px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.6), 0 0 15px rgba(0, 255, 204, 0.1);width:280px;direction:rtl;color:#fff;transition:all 0.3s ease;';
+  
+  ui.innerHTML = `
+    <style>
+      #auto-typer-ui * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+      #auto-typer-ui .btn-troy { transition: all 0.2s ease; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; color: #fff; }
+      #auto-typer-ui .btn-troy:hover { filter: brightness(1.2); box-shadow: 0 0 10px currentColor; transform: translateY(-1px); }
+      #auto-typer-ui .btn-troy:active { transform: translateY(1px); }
+      #auto-typer-ui .troy-input { background: #1e1e28; color: #00ffcc; border: 1px solid #3d3d5c; border-radius: 6px; font-weight: bold; outline: none; transition: border 0.3s; text-align: center; }
+      #auto-typer-ui .troy-input:focus { border-color: #00ffcc; box-shadow: 0 0 8px rgba(0, 255, 204, 0.4); }
+    </style>
+    
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:1px solid #2c2c3d;padding-bottom:10px;">
+      <h3 style="margin:0;font-size:16px;color:#00ffcc;font-weight:800;text-shadow: 0 0 8px rgba(0,255,204,0.3);">مراقب تروي الاحترافي</h3>
+      <span id="typer-close-x" style="cursor:pointer;color:#ff4d4d;font-size:22px;font-weight:bold;line-height:1;transition:0.2s;">&times;</span>
+    </div>
+    
+    <div id="typer-speed-display" style="text-align:center; background:#1a1a24; border:1px dashed #00ffcc; border-radius:6px; padding:10px; margin-bottom:14px; font-size:12px; color:#e0e0e0; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); transition: background 0.3s;">
+      السرعة المثبتة: <span id="typer-saved-speed" style="color:#00ffcc;font-weight:bold;font-size:14px;">120 - 150</span> WPM
+    </div>
+
+    <div style="display:flex;justify-content:space-between;margin-bottom:14px;">
+      <div style="width:48%;">
+        <label style="display:block;font-size:11px;color:#a3a3c2;margin-bottom:6px;font-weight:600;">أدنى سرعة (WPM)</label>
+        <input type="number" id="typer-min" value="120" class="troy-input" style="width:100%;padding:8px;">
+      </div>
+      <div style="width:48%;">
+        <label style="display:block;font-size:11px;color:#a3a3c2;margin-bottom:6px;font-weight:600;">أقصى سرعة (WPM)</label>
+        <input type="number" id="typer-max" value="150" class="troy-input" style="width:100%;padding:8px;">
+      </div>
+    </div>
+    
+    <button id="typer-update-speed" class="btn-troy" style="width:100%;padding:10px;background:#8e44ad;margin-bottom:12px;box-shadow: 0 4px 10px rgba(142, 68, 173, 0.3);">تحديث السرعة</button>
+    <button id="typer-start-monitor" class="btn-troy" style="width:100%;padding:10px;background:#00b894;margin-bottom:8px;box-shadow: 0 4px 10px rgba(0, 184, 148, 0.3);">بدء المراقبة</button>
+    <button id="typer-close" class="btn-troy" style="width:100%;padding:9px;background:#d63031;font-size:12px;">إغلاق</button>
+    
+    <div id="typer-status" style="margin-top:12px;font-size:11px;color:#d63031;text-align:center;font-weight:bold;text-shadow:0 0 5px rgba(214,48,49,0.4);">المراقبة متوقفة</div>
+  `;
+  document.body.appendChild(ui);
+
+  let toggleBtn = document.createElement('button');
+  toggleBtn.id = 'typer-toggle-btn';
+  toggleBtn.innerText = 'فتح المراقب';
+  toggleBtn.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99998;background:#00ffcc;color:#13131a;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;box-shadow:0 4px 12px rgba(0,255,204,0.3);display:none;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
+  document.body.appendChild(toggleBtn);
+
+  let isMonitoring = false;
+  let isTyping = false;
+  let observer = null;
+  
+  // المتغيرات لحفظ السرعة المحدثة
+  let currentMinWPM = 120;
+  let currentMaxWPM = 150;
+
+  function closeUI() {
+    ui.style.display = 'none';
+    toggleBtn.style.display = 'block';
+  }
+
+  document.getElementById('typer-close').onclick = closeUI;
+  document.getElementById('typer-close-x').onclick = closeUI;
+
+  toggleBtn.onclick = function () {
+    ui.style.display = 'block';
+    toggleBtn.style.display = 'none';
+  };
+
+  // وظيفة زر تحديث السرعة
+  document.getElementById('typer-update-speed').onclick = function () {
+    let minInput = parseInt(document.getElementById('typer-min').value);
+    let maxInput = parseInt(document.getElementById('typer-max').value);
+    
+    if (minInput && maxInput && minInput <= maxInput) {
+      currentMinWPM = minInput;
+      currentMaxWPM = maxInput;
+      
+      document.getElementById('typer-saved-speed').innerText = currentMinWPM + " - " + currentMaxWPM;
+      
+      // تأثير وميض خفيف لتأكيد التحديث
+      let displayBox = document.getElementById('typer-speed-display');
+      displayBox.style.background = '#2c3e50';
+      setTimeout(() => { displayBox.style.background = '#1a1a24'; }, 200);
+    } else {
+      alert('الرجاء إدخال أرقام صحيحة، والتأكد أن أدنى سرعة أقل من أقصى سرعة.');
+    }
+  };
+
+  document.getElementById('typer-start-monitor').onclick = function () {
+    if (isMonitoring) return;
+    
+    const chatBox = document.querySelector("#d2"); 
+    if (!chatBox) {
+      alert("لم يتم العثور على صندوق الشات #d2");
+      return;
+    }
+
+    isMonitoring = true;
+    let statusEl = document.getElementById('typer-status');
+    let startBtn = document.getElementById('typer-start-monitor');
+    
+    statusEl.innerText = 'يتم الآن مراقبة Troy...';
+    statusEl.style.color = '#00ffcc';
+    statusEl.style.textShadow = '0 0 5px rgba(0, 255, 204, 0.4)';
+    
+    startBtn.style.background = '#3d3d5c';
+    startBtn.style.boxShadow = 'none';
+    startBtn.innerText = 'المراقبة تعمل بنجاح';
+    startBtn.disabled = true;
+
+    observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType !== 1) continue;
+
+          const msgNode = node.querySelector(".u-msg") || node.querySelector(".msg") || node;
+          let msgText = msgNode.textContent || "";
+
+          const nameEl = node.querySelector(".u-name") || node.querySelector(".name") || node.querySelector("b") || node.querySelector("span");
+          const senderName = nameEl ? nameEl.textContent.trim().replace(/[:\s\-]/g, "") : "";
+
+          let isTroy = senderName.toLowerCase().includes("troy") || senderName.includes("تروي");
+
+          if (isTroy) {
+            if (nameEl && msgText.includes(nameEl.textContent)) {
+              msgText = msgText.replace(nameEl.textContent, "");
+            }
+            
+            let dotsAndCommasCount = (msgText.match(/[،,\.]/g) || []).length;
+            let hasNumbers = /[0-9٠-٩]/.test(msgText);
+
+            if (dotsAndCommasCount >= 3 && !hasNumbers) {
+               if (!isTyping) {
+                 // إرسال طول النص الأصلي لتطبيق معادلة السرعة عليه
+                 let originalLength = msgText.length;
+                 processMessage(msgText, originalLength);
+               }
+            }
+          }
+        }
+      }
+    });
+    
+    observer.observe(chatBox, { childList: true, subtree: true }); 
+  };
+
+  function processMessage(text, originalLength) {
+    let decoded = text.replace(/\u202D(.*?)\u202C/g, function(match, word) {
+        return word.split('').reverse().join('');
+    });
+
+    decoded = decoded.replace(/[\u200B-\u200F\u202A-\u202F\u2060-\u206F\uFE00-\uFE0F\u034F]/g, '');
+    decoded = decoded.replace(/[،\.,]/g, '');
+
+    let filteredText = decoded.replace(/[^\u0621-\u063A\u0641-\u064A\s]/g, '').replace(/\s+/g, ' ').trim();
+    
+    if (filteredText.length > 0) {
+      startTyping(filteredText, originalLength);
+    }
+  }
+
+  function startTyping(text, originalLength) {
+    let chatInput = document.getElementById('tbox');
+    if (!chatInput) {
+      alert('لم يتم العثور على مربع tbox!');
+      return;
+    }
+
+    isTyping = true;
+    chatInput.value = '';
+    chatInput.focus();
+    let i = 0;
+    
+    // سحب سرعة عشوائية بناءً على النطاق المثبت حالياً
+    let targetWPM = Math.floor(Math.random() * (currentMaxWPM - currentMinWPM + 1)) + currentMinWPM;
+    
+    // تطبيق معادلة WPM على النص الأصلي للحصول على الثواني المطلوبة
+    let targetTimeSec = (originalLength / 5) * (60 / targetWPM);
+    let targetTimeMs = targetTimeSec * 1000;
+    
+    // توزيع الوقت الإجمالي على النص المفلتر لضمان الدقة
+    let delayPerChar = targetTimeMs / text.length;
+
+    function typeChar() {
+      if (i < text.length) {
+        chatInput.value += text.charAt(i);
+        chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+        chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+        i++;
+        
+        // استخدام التأخير المحسوب لتطبيق السرعة العشوائية
+        setTimeout(typeChar, delayPerChar);
+      } else {
+        setTimeout(() => {
+          const sendBtns = Array.from(document.querySelectorAll(".btn-primary, .fa-send"));
+          const mainSendBtn = sendBtns.find(b => 
+            (b.textContent.includes("إرسال") || b.className.includes("fa-send")) && 
+            !b.className.includes("sndpm") && 
+            !b.className.includes("sndbc") &&
+            !b.className.includes("rsave") 
+          );
+
+          if (mainSendBtn) {
+            mainSendBtn.click();
+          } else {
+            chatInput.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, keyCode: 13, key: "Enter" }));
+            chatInput.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, cancelable: true, keyCode: 13, key: "Enter" }));
+          }
+          
+          isTyping = false;
+        }, 150);
+      }
+    }
+    
+    typeChar();
+  }
+})();
