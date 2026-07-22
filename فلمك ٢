@@ -13,14 +13,12 @@ javascript: (function () {
 
   let ui = document.createElement('div');
   ui.id = 'auto-typer-ui';
-  // تم إضافة max-height و overflow-y عشان القائمة تصير قابلة للسكرول
   ui.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:#13131a;border:1px solid #2c2c3d;padding:18px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.6), 0 0 15px rgba(0, 255, 204, 0.1);width:300px; max-height:85vh; overflow-y:auto; direction:rtl;color:#fff;transition:all 0.3s ease; scrollbar-width:thin; scrollbar-color:#3d3d5c #13131a;';
   
   ui.innerHTML = `
     <style>
       #auto-typer-ui * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
       
-      /* تصميم سكرول متصفحات كروم وإيدج */
       #auto-typer-ui::-webkit-scrollbar { width: 6px; }
       #auto-typer-ui::-webkit-scrollbar-track { background: #13131a; border-radius: 8px; }
       #auto-typer-ui::-webkit-scrollbar-thumb { background: #3d3d5c; border-radius: 8px; }
@@ -64,14 +62,12 @@ javascript: (function () {
       <button id="typer-stop-monitor" class="btn-troy" style="width:48%;padding:10px;background:#e67e22;box-shadow: 0 4px 10px rgba(230, 126, 34, 0.3); opacity:0.5; cursor:not-allowed;" disabled>وقف</button>
     </div>
 
-    <!-- أزرار القوائم الثلاثة -->
     <div style="display:flex; gap:4px; justify-content:space-between; margin-bottom:12px; border-top: 1px solid #2c2c3d; padding-top: 10px;">
       <button id="btn-toggle-post-article" class="btn-troy" style="flex:1; padding:8px 2px; background:#9b59b6; box-shadow: 0 4px 10px rgba(155, 89, 182, 0.3); font-size:10px;">ما بعد المقالة</button>
       <button id="btn-toggle-simulator" class="btn-troy" style="flex:1; padding:8px 2px; background:#34495e; box-shadow: 0 4px 10px rgba(52, 73, 94, 0.3); font-size:10px;">محاكي السوالف</button>
       <button id="btn-toggle-delay" class="btn-troy" style="flex:1; padding:8px 2px; background:#f39c12; box-shadow: 0 4px 10px rgba(243, 156, 18, 0.3); font-size:10px;">تبطيئ الكلمات</button>
     </div>
 
-    <!-- قسم التحكم في التباطؤ (الجديد) -->
     <div id="delay-section" style="display:none; margin-bottom:12px; background:#1a1a24; padding:10px; border-radius:8px; border:1px solid #3d3d5c;">
       <div style="font-size:10px; color:#a3a3c2; margin-bottom:10px; text-align:center; line-height:1.5;">
         <b style="color:#f39c12">النسبة المئوية لسرعة كل كلمة</b><br>
@@ -86,7 +82,6 @@ javascript: (function () {
       </div>
     </div>
 
-    <!-- قسم ما بعد المقالة -->
     <div id="post-article-section" style="display:none; margin-bottom:12px; background:#1a1a24; padding:10px; border-radius:8px; border:1px solid #3d3d5c;">
       <button id="typer-add-msg" class="btn-troy" style="width:100%;padding:8px;background:#3498db;margin-bottom:8px;box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);">زيادة رسالة</button>
       <div id="typer-extra-msgs-container">
@@ -94,10 +89,13 @@ javascript: (function () {
       </div>
     </div>
 
-    <!-- قسم محاكي السوالف -->
+    <!-- قسم محاكي السوالف مع الزر الجديد -->
     <div id="simulator-section" style="display:none; margin-bottom:12px; background:#1a1a24; padding:10px; border-radius:8px; border:1px solid #3d3d5c;">
        <input type="text" id="simulator-input" class="troy-input" placeholder="اكتب السالفة هنا..." style="width:100%;padding:8px;margin-bottom:8px;">
-       <button id="simulator-write-btn" class="btn-troy" style="width:100%;padding:8px;background:#2ecc71;box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3);">اكتب</button>
+       <div style="display:flex; gap:5px;">
+           <button id="simulator-write-btn" class="btn-troy" style="flex:2;padding:8px;background:#2ecc71;box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3);">اكتب</button>
+           <button id="btn-mini-simulator" class="btn-troy" style="flex:1;padding:8px;background:#3498db;box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3); font-size:11px;">محاكي مصغر</button>
+       </div>
     </div>
 
     <button id="btn-hajja" class="btn-troy" style="width:100%;padding:9px;background:#c0392b;font-size:13px; margin-top:5px; font-weight:bold; box-shadow: 0 4px 10px rgba(192, 57, 43, 0.4);">🚨 الهجة 🚨</button>
@@ -121,7 +119,6 @@ javascript: (function () {
   let currentMinWPM = 120;
   let currentMaxWPM = 150;
   
-  // مصفوفة تحفظ إعدادات سرعة كل كلمة (الافتراضي 100%)
   let wordSpeedModifiers = new Array(30).fill(100);
 
   function closeUI() {
@@ -132,7 +129,6 @@ javascript: (function () {
   document.getElementById('typer-close').onclick = closeUI;
   document.getElementById('typer-close-x').onclick = closeUI;
 
-  // إظهار وإخفاء الأقسام (بدون تعارض)
   document.getElementById('btn-toggle-post-article').onclick = function() {
     let sec = document.getElementById('post-article-section');
     sec.style.display = (sec.style.display === 'none') ? 'block' : 'none';
@@ -148,7 +144,6 @@ javascript: (function () {
     sec.style.display = (sec.style.display === 'none') ? 'block' : 'none';
   };
 
-  // حفظ إعدادات التباطؤ
   document.getElementById('typer-save-modifiers').onclick = function() {
     for(let i=1; i<=30; i++) {
       let val = parseInt(document.getElementById('word-mod-'+i).value);
@@ -166,7 +161,6 @@ javascript: (function () {
     setTimeout(() => { btn.innerText = oldText; btn.style.background = '#27ae60'; }, 1500);
   };
 
-  // تصفير إعدادات التباطؤ
   document.getElementById('typer-reset-modifiers').onclick = function() {
     for(let i=1; i<=30; i++) {
       document.getElementById('word-mod-'+i).value = 100;
@@ -200,9 +194,7 @@ javascript: (function () {
     if (minInput && maxInput && minInput <= maxInput) {
       currentMinWPM = minInput;
       currentMaxWPM = maxInput;
-      
       document.getElementById('typer-saved-speed').innerText = currentMinWPM + " - " + currentMaxWPM;
-      
       let displayBox = document.getElementById('typer-speed-display');
       displayBox.style.background = '#2c3e50';
       setTimeout(() => { displayBox.style.background = '#1a1a24'; }, 200);
@@ -211,7 +203,6 @@ javascript: (function () {
     }
   };
 
-  // زر الهجة لإيقاف الكتابة ومسح النص
   document.getElementById('btn-hajja').onclick = function () {
     cancelTypingFlag = true;
     isTyping = false;
@@ -223,12 +214,56 @@ javascript: (function () {
     }
   };
 
-  // تشغيل محاكي السوالف
-  document.getElementById('simulator-write-btn').onclick = function() {
-    let text = document.getElementById('simulator-input').value.trim();
+  // --- تحديثات محاكي السوالف ---
+  
+  let mainWriteBtn = document.getElementById('simulator-write-btn');
+  // الأسطر الجاية تمنع الكيبورد من الاختفاء وقت ضغط الزر بالجوال
+  mainWriteBtn.addEventListener('mousedown', function(e) { e.preventDefault(); });
+  mainWriteBtn.addEventListener('touchstart', function(e) { e.preventDefault(); });
+  
+  mainWriteBtn.onclick = function() {
+    let inputEl = document.getElementById('simulator-input');
+    let text = inputEl.value.trim();
     if (text !== '' && !isTyping) {
        startTypingSimulator(text);
+       inputEl.value = '';
     }
+  };
+
+  // إضافة المحاكي المصغر
+  document.getElementById('btn-mini-simulator').onclick = function() {
+    if (document.getElementById('mini-simulator-ui')) return;
+
+    let miniUI = document.createElement('div');
+    miniUI.id = 'mini-simulator-ui';
+    miniUI.style.cssText = 'position:fixed;top:10px;left:10px;z-index:999999;background:#13131a;border:1px solid #3d3d5c;padding:8px;border-radius:8px;box-shadow:0 5px 15px rgba(0,0,0,0.8);display:flex;gap:5px;align-items:center;direction:rtl; transition:all 0.3s;';
+
+    miniUI.innerHTML = `
+        <input type="text" id="mini-simulator-input" placeholder="اكتب السالفة..." style="width:150px;padding:8px;font-size:12px;background:#1e1e28;color:#00ffcc;border:1px solid #3d3d5c;border-radius:6px;outline:none;font-weight:bold;text-align:center;">
+        <button id="mini-simulator-write-btn" style="padding:8px 14px;background:#2ecc71;font-size:12px;border:none;border-radius:6px;color:#fff;font-weight:bold;cursor:pointer;">اكتب</button>
+        <button id="mini-simulator-close-btn" style="padding:8px 10px;background:#e74c3c;font-size:14px;border:none;border-radius:6px;color:#fff;font-weight:bold;cursor:pointer;line-height:1;">&times;</button>
+    `;
+    document.body.appendChild(miniUI);
+
+    let miniInput = document.getElementById('mini-simulator-input');
+    let miniWriteBtn = document.getElementById('mini-simulator-write-btn');
+    let miniCloseBtn = document.getElementById('mini-simulator-close-btn');
+
+    miniCloseBtn.onclick = function() {
+        miniUI.remove();
+    };
+
+    // لمنع كيبورد الجوال من الاختفاء في المحاكي المصغر كمان
+    miniWriteBtn.addEventListener('mousedown', function(e) { e.preventDefault(); });
+    miniWriteBtn.addEventListener('touchstart', function(e) { e.preventDefault(); });
+
+    miniWriteBtn.onclick = function() {
+        let text = miniInput.value.trim();
+        if (text !== '' && !isTyping) {
+            startTypingSimulator(text);
+            miniInput.value = '';
+        }
+    };
   };
 
   document.getElementById('typer-start-monitor').onclick = function () {
@@ -264,15 +299,12 @@ javascript: (function () {
       for (const m of mutations) {
         for (const node of m.addedNodes) {
           if (node.nodeType !== 1) continue;
-
           const msgNode = node.querySelector(".u-msg") || node.querySelector(".msg") || node;
           let msgText = msgNode.textContent || "";
-
           const nameEl = node.querySelector(".u-name") || node.querySelector(".name") || node.querySelector("b") || node.querySelector("span");
           const senderName = nameEl ? nameEl.textContent.trim().replace(/[:\s\-]/g, "") : "";
 
           let isTroy = senderName.toLowerCase().includes("troy") || senderName.includes("تروي");
-
           if (isTroy) {
             if (nameEl && msgText.includes(nameEl.textContent)) {
               msgText = msgText.replace(nameEl.textContent, "");
@@ -296,10 +328,7 @@ javascript: (function () {
 
   document.getElementById('typer-stop-monitor').onclick = function () {
     if (!isMonitoring) return;
-
-    if (observer) {
-      observer.disconnect();
-    }
+    if (observer) { observer.disconnect(); }
     isMonitoring = false;
 
     let statusEl = document.getElementById('typer-status');
@@ -326,13 +355,9 @@ javascript: (function () {
     let decoded = text.replace(/\u202D(.*?)\u202C/g, function(match, word) {
         return word.split('').reverse().join('');
     });
-
     decoded = decoded.replace(/[\u200B-\u200F\u202A-\u202F\u2060-\u206F\uFE00-\uFE0F\u034F]/g, '');
     decoded = decoded.replace(/[،\.,]/g, '');
-
-    // استبدال الحروف قبل الفلترة
     decoded = decoded.replace(/[أإٱآ]/g, 'ا').replace(/ؤ/g, 'و');
-
     let filteredText = decoded.replace(/[^\u0621-\u063A\u0641-\u064A\s]/g, '').replace(/\s+/g, ' ').trim();
     
     if (filteredText.length > 0) {
@@ -340,7 +365,6 @@ javascript: (function () {
     }
   }
 
-  // دالة الكتابة المستقلة لمحاكي السوالف
   function startTypingSimulator(text) {
     cancelTypingFlag = false;
     let chatInput = document.getElementById('tbox');
@@ -350,11 +374,8 @@ javascript: (function () {
     }
 
     isTyping = true;
-    document.getElementById('simulator-input').value = ''; 
-
     setTimeout(() => {
       chatInput.value = '';
-      chatInput.focus();
       
       let targetWPM = Math.floor(Math.random() * (currentMaxWPM - currentMinWPM + 1)) + currentMinWPM;
       let wordCount = text.length / 5;
@@ -370,7 +391,6 @@ javascript: (function () {
           chatInput.dispatchEvent(new Event('input', { bubbles: true }));
           chatInput.dispatchEvent(new Event('change', { bubbles: true }));
           
-          // حساب رقم الكلمة الحالية بناءً على عدد المسافات
           let textUpToI = text.substring(0, i);
           let currentWordIndex = (textUpToI.match(/ /g) || []).length;
           
@@ -399,7 +419,6 @@ javascript: (function () {
             nextDelay = avgDelay * (1 + jitter);
           }
 
-          // تطبيق نسبة سرعة الكلمة المخصصة
           if (speedModifier > 0) {
              nextDelay = nextDelay * (100 / speedModifier);
           }
@@ -408,12 +427,10 @@ javascript: (function () {
           setTimeout(typeCharSim, nextDelay);
         }
       }
-      
       typeCharSim();
     }, 500);
   }
 
-  // دالة الكتابة الأساسية (للمراقبة وما بعد المقالة)
   function startTyping(text) {
     cancelTypingFlag = false;
     let chatInput = document.getElementById('tbox');
@@ -452,10 +469,8 @@ javascript: (function () {
       chatInput.focus();
       
       let targetWPM = Math.floor(Math.random() * (currentMaxWPM - currentMinWPM + 1)) + currentMinWPM;
-      
       let wordCount = currentText.length / 5;
       let totalTargetTimeMs = (wordCount / targetWPM) * 60000;
-      
       let startTime = performance.now();
       let i = 0;
 
@@ -467,7 +482,6 @@ javascript: (function () {
           chatInput.dispatchEvent(new Event('input', { bubbles: true }));
           chatInput.dispatchEvent(new Event('change', { bubbles: true }));
           
-          // تحديد موقع الكلمة الحالية لتطبيق السرعة الخاصة بها
           let textUpToI = currentText.substring(0, i);
           let currentWordIndex = (textUpToI.match(/ /g) || []).length;
           
@@ -498,7 +512,6 @@ javascript: (function () {
           let elapsed = performance.now() - startTime;
           let remainingTimeMs = totalTargetTimeMs - elapsed;
           let remainingChars = currentText.length - i;
-          
           let nextDelay = 10;
 
           if (remainingTimeMs > 0 && remainingChars > 0) {
@@ -507,17 +520,14 @@ javascript: (function () {
             nextDelay = avgDelay * (1 + jitter);
           }
 
-          // تطبيق نسبة التباطؤ على الحرف
           if (speedModifier > 0) {
              nextDelay = nextDelay * (100 / speedModifier);
           }
 
           nextDelay = Math.max(5, nextDelay);
-
           setTimeout(typeChar, nextDelay);
         }
       }
-      
       typeChar();
     }
   }
