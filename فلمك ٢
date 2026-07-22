@@ -1,0 +1,524 @@
+javascript: (function () {
+  if (document.getElementById('auto-typer-ui') || document.getElementById('typer-toggle-btn')) return;
+  
+  // تجهيز مربعات الكلمات الـ 30
+  let delayGridHTML = '';
+  for(let i=1; i<=30; i++) {
+     delayGridHTML += `
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <label style="font-size:9px;color:#a3a3c2;margin-bottom:2px;font-weight:bold;">الكلمة ${i}</label>
+        <input type="number" id="word-mod-${i}" value="100" class="troy-input" style="width:100%;padding:4px;font-size:11px;text-align:center;">
+      </div>`;
+  }
+
+  let ui = document.createElement('div');
+  ui.id = 'auto-typer-ui';
+  // تم إضافة max-height و overflow-y عشان القائمة تصير قابلة للسكرول
+  ui.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:#13131a;border:1px solid #2c2c3d;padding:18px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.6), 0 0 15px rgba(0, 255, 204, 0.1);width:300px; max-height:85vh; overflow-y:auto; direction:rtl;color:#fff;transition:all 0.3s ease; scrollbar-width:thin; scrollbar-color:#3d3d5c #13131a;';
+  
+  ui.innerHTML = `
+    <style>
+      #auto-typer-ui * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+      
+      /* تصميم سكرول متصفحات كروم وإيدج */
+      #auto-typer-ui::-webkit-scrollbar { width: 6px; }
+      #auto-typer-ui::-webkit-scrollbar-track { background: #13131a; border-radius: 8px; }
+      #auto-typer-ui::-webkit-scrollbar-thumb { background: #3d3d5c; border-radius: 8px; }
+      #auto-typer-ui::-webkit-scrollbar-thumb:hover { background: #00ffcc; }
+
+      .custom-scroll::-webkit-scrollbar { width: 5px; }
+      .custom-scroll::-webkit-scrollbar-track { background: #1a1a24; }
+      .custom-scroll::-webkit-scrollbar-thumb { background: #4a4a6a; border-radius: 4px; }
+
+      #auto-typer-ui .btn-troy { transition: all 0.2s ease; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; color: #fff; }
+      #auto-typer-ui .btn-troy:hover:not([disabled]) { filter: brightness(1.2); box-shadow: 0 0 10px currentColor; transform: translateY(-1px); }
+      #auto-typer-ui .btn-troy:active:not([disabled]) { transform: translateY(1px); }
+      #auto-typer-ui .troy-input { background: #1e1e28; color: #00ffcc; border: 1px solid #3d3d5c; border-radius: 6px; font-weight: bold; outline: none; transition: border 0.3s; text-align: center; }
+      #auto-typer-ui .troy-input:focus { border-color: #00ffcc; box-shadow: 0 0 8px rgba(0, 255, 204, 0.4); }
+    </style>
+    
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:1px solid #2c2c3d;padding-bottom:10px;">
+      <h3 style="margin:0;font-size:16px;color:#00ffcc;font-weight:800;text-shadow: 0 0 8px rgba(0,255,204,0.3);">براد شات السعودية</h3>
+      <span id="typer-close-x" style="cursor:pointer;color:#ff4d4d;font-size:22px;font-weight:bold;line-height:1;transition:0.2s;">&times;</span>
+    </div>
+    
+    <div id="typer-speed-display" style="text-align:center; background:#1a1a24; border:1px dashed #00ffcc; border-radius:6px; padding:10px; margin-bottom:14px; font-size:12px; color:#e0e0e0; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); transition: background 0.3s;">
+      السرعة المثبتة: <span id="typer-saved-speed" style="color:#00ffcc;font-weight:bold;font-size:14px;">120 - 150</span> WPM
+    </div>
+
+    <div style="display:flex;justify-content:space-between;margin-bottom:14px;">
+      <div style="width:48%;">
+        <label style="display:block;font-size:11px;color:#a3a3c2;margin-bottom:6px;font-weight:600;">أدنى سرعة (WPM)</label>
+        <input type="number" id="typer-min" value="120" class="troy-input" style="width:100%;padding:8px;">
+      </div>
+      <div style="width:48%;">
+        <label style="display:block;font-size:11px;color:#a3a3c2;margin-bottom:6px;font-weight:600;">أقصى سرعة (WPM)</label>
+        <input type="number" id="typer-max" value="150" class="troy-input" style="width:100%;padding:8px;">
+      </div>
+    </div>
+    
+    <button id="typer-update-speed" class="btn-troy" style="width:100%;padding:10px;background:#8e44ad;margin-bottom:12px;box-shadow: 0 4px 10px rgba(142, 68, 173, 0.3);">تحديث السرعة</button>
+    
+    <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+      <button id="typer-start-monitor" class="btn-troy" style="width:48%;padding:10px;background:#00b894;box-shadow: 0 4px 10px rgba(0, 184, 148, 0.3);">شغل</button>
+      <button id="typer-stop-monitor" class="btn-troy" style="width:48%;padding:10px;background:#e67e22;box-shadow: 0 4px 10px rgba(230, 126, 34, 0.3); opacity:0.5; cursor:not-allowed;" disabled>وقف</button>
+    </div>
+
+    <!-- أزرار القوائم الثلاثة -->
+    <div style="display:flex; gap:4px; justify-content:space-between; margin-bottom:12px; border-top: 1px solid #2c2c3d; padding-top: 10px;">
+      <button id="btn-toggle-post-article" class="btn-troy" style="flex:1; padding:8px 2px; background:#9b59b6; box-shadow: 0 4px 10px rgba(155, 89, 182, 0.3); font-size:10px;">ما بعد المقالة</button>
+      <button id="btn-toggle-simulator" class="btn-troy" style="flex:1; padding:8px 2px; background:#34495e; box-shadow: 0 4px 10px rgba(52, 73, 94, 0.3); font-size:10px;">محاكي السوالف</button>
+      <button id="btn-toggle-delay" class="btn-troy" style="flex:1; padding:8px 2px; background:#f39c12; box-shadow: 0 4px 10px rgba(243, 156, 18, 0.3); font-size:10px;">تبطيئ الكلمات</button>
+    </div>
+
+    <!-- قسم التحكم في التباطؤ (الجديد) -->
+    <div id="delay-section" style="display:none; margin-bottom:12px; background:#1a1a24; padding:10px; border-radius:8px; border:1px solid #3d3d5c;">
+      <div style="font-size:10px; color:#a3a3c2; margin-bottom:10px; text-align:center; line-height:1.5;">
+        <b style="color:#f39c12">النسبة المئوية لسرعة كل كلمة</b><br>
+        (100 = طبيعي، 50 = بطيء جداً، 200 = سريع)
+      </div>
+      <div class="custom-scroll" style="display:grid; grid-template-columns: repeat(5, 1fr); gap:6px; margin-bottom:10px; max-height:160px; overflow-y:auto; padding-right:5px; padding-bottom:5px;">
+         ${delayGridHTML}
+      </div>
+      <div style="display:flex; justify-content:space-between; gap:5px;">
+        <button id="typer-save-modifiers" class="btn-troy" style="flex:2;padding:8px;background:#27ae60;box-shadow: 0 4px 10px rgba(39, 174, 96, 0.3); font-size:11px;">تثبيت الإعدادات</button>
+        <button id="typer-reset-modifiers" class="btn-troy" style="flex:1;padding:8px;background:#7f8c8d;box-shadow: 0 4px 10px rgba(127, 140, 141, 0.3); font-size:11px;">تصفير</button>
+      </div>
+    </div>
+
+    <!-- قسم ما بعد المقالة -->
+    <div id="post-article-section" style="display:none; margin-bottom:12px; background:#1a1a24; padding:10px; border-radius:8px; border:1px solid #3d3d5c;">
+      <button id="typer-add-msg" class="btn-troy" style="width:100%;padding:8px;background:#3498db;margin-bottom:8px;box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);">زيادة رسالة</button>
+      <div id="typer-extra-msgs-container">
+        <input type="text" class="troy-input typer-extra-msg" placeholder="رسالة إضافية..." style="width:100%;padding:8px;margin-bottom:6px;">
+      </div>
+    </div>
+
+    <!-- قسم محاكي السوالف -->
+    <div id="simulator-section" style="display:none; margin-bottom:12px; background:#1a1a24; padding:10px; border-radius:8px; border:1px solid #3d3d5c;">
+       <input type="text" id="simulator-input" class="troy-input" placeholder="اكتب السالفة هنا..." style="width:100%;padding:8px;margin-bottom:8px;">
+       <button id="simulator-write-btn" class="btn-troy" style="width:100%;padding:8px;background:#2ecc71;box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3);">اكتب</button>
+    </div>
+
+    <button id="btn-hajja" class="btn-troy" style="width:100%;padding:9px;background:#c0392b;font-size:13px; margin-top:5px; font-weight:bold; box-shadow: 0 4px 10px rgba(192, 57, 43, 0.4);">🚨 الهجة 🚨</button>
+    <button id="typer-close" class="btn-troy" style="width:100%;padding:9px;background:#d63031;font-size:12px; margin-top:5px;">قفل القائمة</button>
+    
+    <div id="typer-status" style="margin-top:12px;font-size:11px;color:#d63031;text-align:center;font-weight:bold;text-shadow:0 0 5px rgba(214,48,49,0.4);">المراقبة متوقفة</div>
+  `;
+  document.body.appendChild(ui);
+
+  let toggleBtn = document.createElement('button');
+  toggleBtn.id = 'typer-toggle-btn';
+  toggleBtn.innerText = 'فتح المراقب';
+  toggleBtn.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99998;background:#00ffcc;color:#13131a;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;box-shadow:0 4px 12px rgba(0,255,204,0.3);display:none;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
+  document.body.appendChild(toggleBtn);
+
+  let isMonitoring = false;
+  let isTyping = false;
+  let cancelTypingFlag = false;
+  let observer = null;
+  
+  let currentMinWPM = 120;
+  let currentMaxWPM = 150;
+  
+  // مصفوفة تحفظ إعدادات سرعة كل كلمة (الافتراضي 100%)
+  let wordSpeedModifiers = new Array(30).fill(100);
+
+  function closeUI() {
+    ui.style.display = 'none';
+    toggleBtn.style.display = 'block';
+  }
+
+  document.getElementById('typer-close').onclick = closeUI;
+  document.getElementById('typer-close-x').onclick = closeUI;
+
+  // إظهار وإخفاء الأقسام (بدون تعارض)
+  document.getElementById('btn-toggle-post-article').onclick = function() {
+    let sec = document.getElementById('post-article-section');
+    sec.style.display = (sec.style.display === 'none') ? 'block' : 'none';
+  };
+
+  document.getElementById('btn-toggle-simulator').onclick = function() {
+    let sec = document.getElementById('simulator-section');
+    sec.style.display = (sec.style.display === 'none') ? 'block' : 'none';
+  };
+
+  document.getElementById('btn-toggle-delay').onclick = function() {
+    let sec = document.getElementById('delay-section');
+    sec.style.display = (sec.style.display === 'none') ? 'block' : 'none';
+  };
+
+  // حفظ إعدادات التباطؤ
+  document.getElementById('typer-save-modifiers').onclick = function() {
+    for(let i=1; i<=30; i++) {
+      let val = parseInt(document.getElementById('word-mod-'+i).value);
+      if(val && val > 0) {
+        wordSpeedModifiers[i-1] = val;
+      } else {
+        document.getElementById('word-mod-'+i).value = 100;
+        wordSpeedModifiers[i-1] = 100;
+      }
+    }
+    let btn = document.getElementById('typer-save-modifiers');
+    let oldText = btn.innerText;
+    btn.innerText = 'تم التثبيت ✔';
+    btn.style.background = '#2ecc71';
+    setTimeout(() => { btn.innerText = oldText; btn.style.background = '#27ae60'; }, 1500);
+  };
+
+  // تصفير إعدادات التباطؤ
+  document.getElementById('typer-reset-modifiers').onclick = function() {
+    for(let i=1; i<=30; i++) {
+      document.getElementById('word-mod-'+i).value = 100;
+      wordSpeedModifiers[i-1] = 100;
+    }
+    let btn = document.getElementById('typer-reset-modifiers');
+    let oldText = btn.innerText;
+    btn.innerText = 'تم ✔';
+    setTimeout(() => { btn.innerText = oldText; }, 1000);
+  };
+
+  document.getElementById('typer-add-msg').onclick = function () {
+    let container = document.getElementById('typer-extra-msgs-container');
+    let newInput = document.createElement('input');
+    newInput.type = 'text';
+    newInput.className = 'troy-input typer-extra-msg';
+    newInput.placeholder = 'رسالة إضافية...';
+    newInput.style.cssText = 'width:100%;padding:8px;margin-bottom:6px;';
+    container.appendChild(newInput);
+  };
+
+  toggleBtn.onclick = function () {
+    ui.style.display = 'block';
+    toggleBtn.style.display = 'none';
+  };
+
+  document.getElementById('typer-update-speed').onclick = function () {
+    let minInput = parseInt(document.getElementById('typer-min').value);
+    let maxInput = parseInt(document.getElementById('typer-max').value);
+    
+    if (minInput && maxInput && minInput <= maxInput) {
+      currentMinWPM = minInput;
+      currentMaxWPM = maxInput;
+      
+      document.getElementById('typer-saved-speed').innerText = currentMinWPM + " - " + currentMaxWPM;
+      
+      let displayBox = document.getElementById('typer-speed-display');
+      displayBox.style.background = '#2c3e50';
+      setTimeout(() => { displayBox.style.background = '#1a1a24'; }, 200);
+    } else {
+      alert('الرجاء إدخال أرقام صحيحة، والتأكد أن أدنى سرعة أقل من أقصى سرعة.');
+    }
+  };
+
+  // زر الهجة لإيقاف الكتابة ومسح النص
+  document.getElementById('btn-hajja').onclick = function () {
+    cancelTypingFlag = true;
+    isTyping = false;
+    let chatInput = document.getElementById('tbox');
+    if (chatInput) {
+      chatInput.value = '';
+      chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+      chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  };
+
+  // تشغيل محاكي السوالف
+  document.getElementById('simulator-write-btn').onclick = function() {
+    let text = document.getElementById('simulator-input').value.trim();
+    if (text !== '' && !isTyping) {
+       startTypingSimulator(text);
+    }
+  };
+
+  document.getElementById('typer-start-monitor').onclick = function () {
+    if (isMonitoring) return;
+    
+    const chatBox = document.querySelector("#d2"); 
+    if (!chatBox) {
+      alert("لم يتم العثور على صندوق الشات #d2");
+      return;
+    }
+
+    isMonitoring = true;
+    let statusEl = document.getElementById('typer-status');
+    let startBtn = document.getElementById('typer-start-monitor');
+    let stopBtn = document.getElementById('typer-stop-monitor');
+    
+    statusEl.innerText = 'يتم الآن مراقبة Troy...';
+    statusEl.style.color = '#00ffcc';
+    statusEl.style.textShadow = '0 0 5px rgba(0, 255, 204, 0.4)';
+    
+    startBtn.style.background = '#3d3d5c';
+    startBtn.style.boxShadow = 'none';
+    startBtn.style.opacity = '0.5';
+    startBtn.style.cursor = 'not-allowed';
+    startBtn.innerText = 'جارٍ المراقبة';
+    startBtn.disabled = true;
+
+    stopBtn.disabled = false;
+    stopBtn.style.opacity = '1';
+    stopBtn.style.cursor = 'pointer';
+
+    observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType !== 1) continue;
+
+          const msgNode = node.querySelector(".u-msg") || node.querySelector(".msg") || node;
+          let msgText = msgNode.textContent || "";
+
+          const nameEl = node.querySelector(".u-name") || node.querySelector(".name") || node.querySelector("b") || node.querySelector("span");
+          const senderName = nameEl ? nameEl.textContent.trim().replace(/[:\s\-]/g, "") : "";
+
+          let isTroy = senderName.toLowerCase().includes("troy") || senderName.includes("تروي");
+
+          if (isTroy) {
+            if (nameEl && msgText.includes(nameEl.textContent)) {
+              msgText = msgText.replace(nameEl.textContent, "");
+            }
+            
+            let dotsAndCommasCount = (msgText.match(/[،,\.]/g) || []).length;
+            let hasNumbers = /[0-9٠-٩]/.test(msgText);
+
+            if (dotsAndCommasCount >= 3 && !hasNumbers) {
+               if (!isTyping) {
+                 processMessage(msgText);
+               }
+            }
+          }
+        }
+      }
+    });
+    
+    observer.observe(chatBox, { childList: true, subtree: true }); 
+  };
+
+  document.getElementById('typer-stop-monitor').onclick = function () {
+    if (!isMonitoring) return;
+
+    if (observer) {
+      observer.disconnect();
+    }
+    isMonitoring = false;
+
+    let statusEl = document.getElementById('typer-status');
+    let startBtn = document.getElementById('typer-start-monitor');
+    let stopBtn = document.getElementById('typer-stop-monitor');
+
+    statusEl.innerText = 'المراقبة متوقفة';
+    statusEl.style.color = '#d63031';
+    statusEl.style.textShadow = '0 0 5px rgba(214,48,49,0.4)';
+
+    startBtn.disabled = false;
+    startBtn.style.opacity = '1';
+    startBtn.style.cursor = 'pointer';
+    startBtn.innerText = 'شغل';
+    startBtn.style.background = '#00b894';
+    startBtn.style.boxShadow = '0 4px 10px rgba(0, 184, 148, 0.3)';
+
+    stopBtn.disabled = true;
+    stopBtn.style.opacity = '0.5';
+    stopBtn.style.cursor = 'not-allowed';
+  };
+
+  function processMessage(text) {
+    let decoded = text.replace(/\u202D(.*?)\u202C/g, function(match, word) {
+        return word.split('').reverse().join('');
+    });
+
+    decoded = decoded.replace(/[\u200B-\u200F\u202A-\u202F\u2060-\u206F\uFE00-\uFE0F\u034F]/g, '');
+    decoded = decoded.replace(/[،\.,]/g, '');
+
+    // استبدال الحروف قبل الفلترة
+    decoded = decoded.replace(/[أإٱآ]/g, 'ا').replace(/ؤ/g, 'و');
+
+    let filteredText = decoded.replace(/[^\u0621-\u063A\u0641-\u064A\s]/g, '').replace(/\s+/g, ' ').trim();
+    
+    if (filteredText.length > 0) {
+      startTyping(filteredText);
+    }
+  }
+
+  // دالة الكتابة المستقلة لمحاكي السوالف
+  function startTypingSimulator(text) {
+    cancelTypingFlag = false;
+    let chatInput = document.getElementById('tbox');
+    if (!chatInput) {
+      alert('لم يتم العثور على مربع tbox!');
+      return;
+    }
+
+    isTyping = true;
+    document.getElementById('simulator-input').value = ''; 
+
+    setTimeout(() => {
+      chatInput.value = '';
+      chatInput.focus();
+      
+      let targetWPM = Math.floor(Math.random() * (currentMaxWPM - currentMinWPM + 1)) + currentMinWPM;
+      let wordCount = text.length / 5;
+      let totalTargetTimeMs = (wordCount / targetWPM) * 60000;
+      let startTime = performance.now();
+      let i = 0;
+
+      function typeCharSim() {
+        if (cancelTypingFlag) return;
+        
+        if (i < text.length) {
+          chatInput.value += text.charAt(i);
+          chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+          chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+          
+          // حساب رقم الكلمة الحالية بناءً على عدد المسافات
+          let textUpToI = text.substring(0, i);
+          let currentWordIndex = (textUpToI.match(/ /g) || []).length;
+          
+          let speedModifier = 100;
+          if (currentWordIndex < 30) {
+             speedModifier = wordSpeedModifiers[currentWordIndex] || 100;
+          }
+
+          i++;
+          
+          if (i === text.length) {
+            chatInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+            chatInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+            isTyping = false;
+            return;
+          }
+
+          let elapsed = performance.now() - startTime;
+          let remainingTimeMs = totalTargetTimeMs - elapsed;
+          let remainingChars = text.length - i;
+          let nextDelay = 10;
+
+          if (remainingTimeMs > 0 && remainingChars > 0) {
+            let avgDelay = remainingTimeMs / remainingChars;
+            let jitter = (Math.random() * 0.6) - 0.3; 
+            nextDelay = avgDelay * (1 + jitter);
+          }
+
+          // تطبيق نسبة سرعة الكلمة المخصصة
+          if (speedModifier > 0) {
+             nextDelay = nextDelay * (100 / speedModifier);
+          }
+
+          nextDelay = Math.max(5, nextDelay);
+          setTimeout(typeCharSim, nextDelay);
+        }
+      }
+      
+      typeCharSim();
+    }, 500);
+  }
+
+  // دالة الكتابة الأساسية (للمراقبة وما بعد المقالة)
+  function startTyping(text) {
+    cancelTypingFlag = false;
+    let chatInput = document.getElementById('tbox');
+    if (!chatInput) {
+      alert('لم يتم العثور على مربع tbox!');
+      return;
+    }
+
+    let extraInputs = document.querySelectorAll('.typer-extra-msg');
+    let msgsQueue = [text];
+    extraInputs.forEach(input => {
+      if (input.value.trim() !== '') {
+        msgsQueue.push(input.value.trim());
+      }
+    });
+
+    isTyping = true;
+    let currentMsgIndex = 0;
+
+    setTimeout(typeNextMessage, 500);
+
+    function typeNextMessage() {
+      if (cancelTypingFlag) return;
+      
+      if (currentMsgIndex >= msgsQueue.length) {
+        isTyping = false;
+        if (msgsQueue.length > 1) {
+          let container = document.getElementById('typer-extra-msgs-container');
+          container.innerHTML = '<input type="text" class="troy-input typer-extra-msg" placeholder="رسالة إضافية..." style="width:100%;padding:8px;margin-bottom:6px;">';
+        }
+        return;
+      }
+
+      let currentText = msgsQueue[currentMsgIndex];
+      chatInput.value = '';
+      chatInput.focus();
+      
+      let targetWPM = Math.floor(Math.random() * (currentMaxWPM - currentMinWPM + 1)) + currentMinWPM;
+      
+      let wordCount = currentText.length / 5;
+      let totalTargetTimeMs = (wordCount / targetWPM) * 60000;
+      
+      let startTime = performance.now();
+      let i = 0;
+
+      function typeChar() {
+        if (cancelTypingFlag) return;
+        
+        if (i < currentText.length) {
+          chatInput.value += currentText.charAt(i);
+          chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+          chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+          
+          // تحديد موقع الكلمة الحالية لتطبيق السرعة الخاصة بها
+          let textUpToI = currentText.substring(0, i);
+          let currentWordIndex = (textUpToI.match(/ /g) || []).length;
+          
+          let speedModifier = 100;
+          if (currentWordIndex < 30) {
+             speedModifier = wordSpeedModifiers[currentWordIndex] || 100;
+          }
+
+          i++;
+          
+          if (i === currentText.length) {
+            chatInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+            chatInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+            
+            currentMsgIndex++;
+            if (currentMsgIndex < msgsQueue.length) {
+              setTimeout(typeNextMessage, 500); 
+            } else {
+              isTyping = false;
+              if (msgsQueue.length > 1) {
+                let container = document.getElementById('typer-extra-msgs-container');
+                container.innerHTML = '<input type="text" class="troy-input typer-extra-msg" placeholder="رسالة إضافية..." style="width:100%;padding:8px;margin-bottom:6px;">';
+              }
+            }
+            return;
+          }
+
+          let elapsed = performance.now() - startTime;
+          let remainingTimeMs = totalTargetTimeMs - elapsed;
+          let remainingChars = currentText.length - i;
+          
+          let nextDelay = 10;
+
+          if (remainingTimeMs > 0 && remainingChars > 0) {
+            let avgDelay = remainingTimeMs / remainingChars;
+            let jitter = (Math.random() * 0.6) - 0.3; 
+            nextDelay = avgDelay * (1 + jitter);
+          }
+
+          // تطبيق نسبة التباطؤ على الحرف
+          if (speedModifier > 0) {
+             nextDelay = nextDelay * (100 / speedModifier);
+          }
+
+          nextDelay = Math.max(5, nextDelay);
+
+          setTimeout(typeChar, nextDelay);
+        }
+      }
+      
+      typeChar();
+    }
+  }
+})();
