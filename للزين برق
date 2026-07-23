@@ -15,7 +15,6 @@ javascript: (function () {
       originalFocus.call(this, options);
   };
 
-  // --- نظام التصفية القوي جداً (Super Filter) ---
   function superFilter(text) {
       if (!text) return '';
       let clean = text.replace(/[\u064B-\u065F\u0640\u200B-\u200F\u202A-\u202F\u2060-\u206F\uFE00-\uFE0F\u034F]/g, '');
@@ -88,7 +87,7 @@ javascript: (function () {
       <button id="btn-toggle-settings" class="btn-troy" style="width:100%; padding:8px 2px; background:#16a085; box-shadow: 0 4px 10px rgba(22, 160, 133, 0.3); font-size:11px;">حفظ الإعدادات</button>
     </div>
 
-    <button id="btn-toggle-taa-haa" class="btn-troy" style="width:100%; padding:8px; background:#c0392b; margin-bottom:12px; font-size:11px; box-shadow: 0 4px 10px rgba(192, 57, 43, 0.3);">تغيير التاء المربوطة لهاء</button>
+    <button id="btn-toggle-taa-haa" class="btn-troy" style="width:100%; padding:8px; background:#c0392b; margin-bottom:12px; font-size:11px; box-shadow: 0 4px 10px rgba(192, 57, 43, 0.3);">تفعيل قواعد براد (ا، و، هـ)</button>
 
     <div id="settings-section" style="display:none; margin-bottom:12px; background:#1a1a24; padding:10px; border-radius:8px; border:1px solid #3d3d5c;">
         <div style="font-size:12px; font-weight:bold; color:#16a085; text-align:center; margin-bottom:10px; text-shadow:0 0 5px rgba(22,160,133,0.4);">إدارة ملف الإعدادات</div>
@@ -157,10 +156,9 @@ javascript: (function () {
   `;
   document.body.appendChild(ui);
 
-  // --- إنشاء قائمة (براد عام) مصغرة ---
   let msgPanel = document.createElement('div');
   msgPanel.id = 'typer-msg-panel';
-  msgPanel.style.cssText = 'position:fixed;top:45px;right:10px;z-index:99999;background:#13131a;border:1px solid #2c2c3d;padding:8px;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.8);width:240px;direction:rtl;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:none; transition:all 0.3s ease;';
+  msgPanel.style.cssText = 'position:fixed;top:0px;left:0px;z-index:99999;background:#13131a;border:1px solid #2c2c3d;padding:8px;border-radius:0 0 12px 0;box-shadow:0 10px 25px rgba(0,0,0,0.8);width:160px;direction:rtl;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:none; transition:all 0.3s ease;';
   
   msgPanel.innerHTML = `
     <div style="display:flex;justify-content:center;align-items:center;margin-bottom:6px;border-bottom:1px solid #2c2c3d;padding-bottom:4px;">
@@ -210,7 +208,6 @@ javascript: (function () {
       container.scrollTop = container.scrollHeight;
   }
 
-  // التقاط الرسائل تلقائياً فور نزولها في #d2
   function initAutoCapture() {
       const chatBox = document.querySelector("#d2");
       if (!chatBox) return;
@@ -240,27 +237,23 @@ javascript: (function () {
       }
   }, 1000);
 
-  // --- حاوية أزرار التشغيل الجانبية ---
   let toggleContainer = document.createElement('div');
   toggleContainer.id = 'typer-toggle-container';
-  toggleContainer.style.cssText = 'position:fixed;top:10px;right:10px;z-index:99998;display:flex;gap:5px;';
+  toggleContainer.style.cssText = 'position:fixed;top:0px;left:0px;margin:0;padding:2px;z-index:99998;display:flex;gap:5px;';
   document.body.appendChild(toggleContainer);
 
-  // --- زر براد ترويا ---
   let toggleBtn = document.createElement('button');
   toggleBtn.id = 'typer-toggle-btn';
   toggleBtn.innerText = 'براد ترويا';
-  toggleBtn.style.cssText = 'background:#00ffcc;color:#13131a;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;box-shadow:0 4px 12px rgba(0,255,204,0.3);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:none;';
+  toggleBtn.style.cssText = 'background:#00ffcc;color:#13131a;border:none;padding:8px 12px;border-radius:0 0 6px 0;cursor:pointer;font-weight:bold;font-size:11px;box-shadow:0 4px 12px rgba(0,255,204,0.3);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:none;';
   toggleContainer.appendChild(toggleBtn);
 
-  // --- زر براد عام ---
   let toggleBradAmBtn = document.createElement('button');
   toggleBradAmBtn.id = 'btn-toggle-brad-am';
   toggleBradAmBtn.innerText = 'براد عام';
-  toggleBradAmBtn.style.cssText = 'background:#00ffcc;color:#13131a;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;box-shadow:0 4px 12px rgba(0,255,204,0.3);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
+  toggleBradAmBtn.style.cssText = 'background:#00ffcc;color:#13131a;border:none;padding:8px 12px;border-radius:0 0 12px 0;cursor:pointer;font-weight:bold;font-size:11px;box-shadow:0 4px 12px rgba(0,255,204,0.3);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
   toggleContainer.appendChild(toggleBradAmBtn);
 
-  // فتح وإغلاق قائمة براد عام
   toggleBradAmBtn.onclick = function() {
       toggleBradAmBtn.style.display = 'none';
       msgPanel.style.display = 'block';
@@ -382,7 +375,7 @@ javascript: (function () {
       let processed = rawText;
 
       if (replaceTaaWithHaa) {
-          processed = processed.replace(/ة/g, 'ه');
+          processed = processed.replace(/[أإٱآ]/g, 'ا').replace(/ؤ/g, 'و').replace(/ة/g, 'ه');
       }
 
       if (prefixMode !== 0) {
@@ -449,9 +442,7 @@ javascript: (function () {
           this.style.background = '#c0392b';
           this.style.boxShadow = '0 4px 10px rgba(192, 57, 43, 0.3)';
       }
-  };
-
-  document.getElementById('btn-toggle-settings').onclick = function() {
+  };document.getElementById('btn-toggle-settings').onclick = function() {
     let sec = document.getElementById('settings-section');
     sec.style.display = (sec.style.display === 'none') ? 'block' : 'none';
   };
@@ -760,8 +751,7 @@ javascript: (function () {
 
     let miniUI = document.createElement('div');
     miniUI.id = 'mini-simulator-ui';
-    // التعديل: تحويل الحاوية لتقبل عناصر عمودية عشان قائمة براد عام تندمج تحتها
-    miniUI.style.cssText = 'position:fixed;top:10px;left:10px;z-index:999999;background:#13131a;border:1px solid #3d3d5c;padding:8px;border-radius:8px;box-shadow:0 5px 15px rgba(0,0,0,0.8);display:flex;flex-direction:column;gap:8px;direction:rtl; transition:all 0.3s;';
+    miniUI.style.cssText = 'position:fixed;top:0px;left:0px;z-index:999999;background:#13131a;border:1px solid #3d3d5c;padding:8px;border-radius:0 0 12px 0;box-shadow:0 5px 15px rgba(0,0,0,0.8);display:flex;flex-direction:column;gap:8px;direction:rtl; transition:all 0.3s;';
 
     let topRow = document.createElement('div');
     topRow.style.cssText = 'display:flex;gap:5px;align-items:center;';
@@ -773,11 +763,9 @@ javascript: (function () {
     miniUI.appendChild(topRow);
     document.body.appendChild(miniUI);
 
-    // --- نظام دمج قائمة براد عام ---
     let msgPanel = document.getElementById('typer-msg-panel');
     let originalMsgPanelCss = msgPanel.style.cssText;
 
-    // تهيئة القائمة للاندماج داخل المحاكي المصغر
     msgPanel.style.position = 'static';
     msgPanel.style.width = '100%';
     msgPanel.style.boxShadow = 'none';
@@ -792,13 +780,11 @@ javascript: (function () {
     toggleBradAmBtn.style.display = 'none';
     
     miniUI.appendChild(msgPanel);
-    // ---------------------------------
 
     let miniWriteBtn = document.getElementById('mini-simulator-write-btn');
     let miniCloseBtn = document.getElementById('mini-simulator-close-btn');
 
     miniCloseBtn.onclick = function() {
-        // --- استعادة قائمة براد عام لمكانها الأصلي ---
         document.body.appendChild(msgPanel);
         msgPanel.style.cssText = originalMsgPanelCss;
         msgPanel.style.display = 'none';
