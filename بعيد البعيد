@@ -1,0 +1,265 @@
+javascript: (function () {
+    let isTyping = false;
+    let cancelTypingFlag = false;
+    let observer = null;
+    let captureObserver = null;
+
+    // تجاوز الـ Focus عشان ما ينسحب التركيز من المربع
+    const originalFocus = HTMLElement.prototype.focus;
+    HTMLElement.prototype.focus = function(options) {
+        let active = document.activeElement;
+        let isOurInputActive = active && (
+            active.id === 'mini-simulator-input' || 
+            active.id === 'simulator-input' || 
+            active.classList.contains('typer-extra-msg')
+        );
+        if (this.id === 'tbox' && isOurInputActive) {
+            return; 
+        }
+        originalFocus.call(this, options);
+    };
+
+    // تحميل مكتبة Supabase
+    var script = document.createElement('script');
+    script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+    script.onload = function() {
+        const SUPABASE_URL = 'https://dledxiypqlewwfqjcynw.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsZWR4aXlwcWxld3dmcWpjeW53Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4MzU4MjksImV4cCI6MjEwMDQxMTgyOX0.-HjjH4L2dLhthYSX44_3yROfcROb4KqNKyCNOAPHSHM';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const channel = supabase.channel('chat-control');
+
+        // دالة لإرسال البيانات للوحة التحكم
+        function sendAction(data) {
+            channel.send({ type: 'broadcast', event: 'target-to-control', payload: data });
+        }
+
+        // استقبال الأوامر من لوحة التحكم
+        channel.on('broadcast', { event: 'control-to-target' }, ({ payload }) => {
+            if (payload.type === 'HAJJA') {
+                cancelTypingFlag = true;
+                isTyping = false;
+                let chatInput = document.getElementById('tbox');
+                if (chatInput) {
+                    chatInput.value = '';
+                    chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }
+            if (payload.type === 'SIMULATE_TYPING') { executeSim(payload.text, payload.settings); }
+            if (payload.type === 'START_TYPING') { executeQueue(payload.queue, payload.settings); }
+            if (payload.type === 'START_MONITOR') { startMonitor(); }
+            if (payload.type === 'STOP_MONITOR') { if (observer) { observer.disconnect(); observer = null; } }
+        }).subscribe((status) => {
+            if(status === 'SUBSCRIBED') {
+                let toast = document.createElement('div');
+                toast.innerText = 'تم ربط سكربت أبو عتب عبر Supabase بنجاح!';
+                toast.style.cssText = 'position:fixed;top:20px;left:20px;background:#00ffcc;color:#000;padding:10px;border-radius:5px;z-index:999999;font-weight:bold;box-shadow:0 0 10px rgba(0,255,204,0.5);';
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 4000);
+            }
+        });
+
+        // المراقبة الصارمة (للرسائل الجديدة فقط)
+        function startMonitor() {
+            const chatBox = document.querySelector("#d2"); 
+            if (!chatBox) {
+                sendAction({ type: 'MONITOR_ERROR', msg: "لم يتم العثور على صندوق الشات #d2" });
+                return;
+            }
+            observer = new MutationObserver((mutations) => {
+                for (const m of mutations) {
+                    for (const node of m.addedNodes) {
+                        if (node.nodeType !== 1) continue;
+                        const msgNode = node.querySelector(".u-msg") || node.querySelector(".msg") || node;
+                        if (!msgNode) continue;
+                        let msgText = msgNode.textContent || "";
+                        const nameEl = node.querySelector(".u-name") || node.querySelector(".name") || node.querySelector("b") || node.querySelector("span");
+                        const senderName = nameEl ? nameEl.textContent.trim().replace(/[:\s\-]/g, "") : "";
+
+                        let isTroy = senderName.toLowerCase().includes("troy") || senderName.includes("تروي");
+                        if (isTroy) {
+                            if (nameEl && msgText.includes(nameEl.textContent)) {
+                                msgText = msgText.replace(nameEl.textContent, "");
+                            }
+                            
+                            let dotsAndCommasCount = (msgText.match(/[،,\.]/g) || []).length;
+                            let hasNumbers = /[0-9٠-٩]/.test(msgText);
+
+                            if (dotsAndCommasCount >= 3 && !hasNumbers) {
+                               if (!isTyping) {
+                                   sendAction({ type: 'TROY_MSG_DETECTED', text: msgText });
+                               }
+                            }
+                        }
+                    }
+                }
+            });
+            observer.observe(chatBox, { childList: true, subtree: true }); 
+        }
+
+        function initAutoCapture() {
+            const chatBox = document.querySelector("#d2");
+            if (!chatBox) return;
+
+            captureObserver = new MutationObserver((mutations) => {
+                for (const m of mutations) {
+                    for (const node of m.addedNodes) {
+                        if (node.nodeType !== 1) continue;
+                        const msgNode = node.querySelector(".u-msg") || node.querySelector(".msg") || node;
+                        if (msgNode) {
+                            let rawText = msgNode.textContent || "";
+                            rawText = rawText.replace(/هذا المستخدم قد (دخل|غادر الدردشه)/g, '').replace(/هذا المستخدم أنتقل ألى.*/g, '').trim();
+                            if (rawText && rawText.length > 0 && !rawText.includes("إعلان")) {
+                                sendAction({ type: 'AUTO_CAPTURE_MSG', text: rawText });
+                            }
+                        }
+                    }
+                }
+            });
+            captureObserver.observe(chatBox, { childList: true, subtree: true });
+        }
+
+        let captureCheckInterval = setInterval(() => {
+            if (document.querySelector("#d2")) {
+                initAutoCapture();
+                clearInterval(captureCheckInterval);
+            }
+        }, 1000);
+
+        function executeSim(finalText, settings) {
+            cancelTypingFlag = false;
+            let chatInput = document.getElementById('tbox');
+            if (!chatInput) { sendAction({ type: 'MONITOR_ERROR', msg: "لم يتم العثور على tbox" }); return; }
+
+            isTyping = true;
+            setTimeout(() => {
+                chatInput.value = '';
+                let targetWPM = Math.floor(Math.random() * (settings.maxWPM - settings.minWPM + 1)) + settings.minWPM;
+                let wordCount = finalText.length / 5;
+                let totalTargetTimeMs = (wordCount / targetWPM) * 60000;
+                let startTime = performance.now();
+                let i = 0;
+
+                function typeCharSim() {
+                    if (cancelTypingFlag) return;
+                    if (i < finalText.length) {
+                        chatInput.value += finalText.charAt(i);
+                        chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        
+                        let textUpToI = finalText.substring(0, i);
+                        let currentWordIndex = (textUpToI.match(/ /g) || []).length;
+                        
+                        let speedModifier = 100;
+                        if (currentWordIndex < 30) {
+                            speedModifier = settings.wordSpeedModifiers[currentWordIndex] || 100;
+                        }
+
+                        i++;
+                        
+                        if (i === finalText.length) {
+                            chatInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+                            chatInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+                            isTyping = false;
+                            return;
+                        }
+
+                        let elapsed = performance.now() - startTime;
+                        let remainingTimeMs = totalTargetTimeMs - elapsed;
+                        let remainingChars = finalText.length - i;
+                        let nextDelay = 10;
+
+                        if (remainingTimeMs > 0 && remainingChars > 0) {
+                            let avgDelay = remainingTimeMs / remainingChars;
+                            let jitter = (Math.random() * 0.6) - 0.3; 
+                            nextDelay = avgDelay * (1 + jitter);
+                        }
+
+                        if (speedModifier > 0) { nextDelay = nextDelay * (100 / speedModifier); }
+                        nextDelay = Math.max(5, nextDelay);
+                        setTimeout(typeCharSim, nextDelay);
+                    }
+                }
+                typeCharSim();
+            }, 500);
+        }
+
+        function executeQueue(msgsQueue, settings) {
+            cancelTypingFlag = false;
+            let chatInput = document.getElementById('tbox');
+            if (!chatInput) { sendAction({ type: 'MONITOR_ERROR', msg: "لم يتم العثور على tbox" }); return; }
+
+            isTyping = true;
+            let currentMsgIndex = 0;
+            setTimeout(typeNextMessage, 500);
+
+            function typeNextMessage() {
+                if (cancelTypingFlag) return;
+                if (currentMsgIndex >= msgsQueue.length) {
+                    isTyping = false;
+                    sendAction({ type: 'QUEUE_FINISHED' });
+                    return;
+                }
+
+                let finalProcessedText = msgsQueue[currentMsgIndex];
+                chatInput.value = '';
+                
+                let targetWPM = Math.floor(Math.random() * (settings.maxWPM - settings.minWPM + 1)) + settings.minWPM;
+                let wordCount = finalProcessedText.length / 5;
+                let totalTargetTimeMs = (wordCount / targetWPM) * 60000;
+                let startTime = performance.now();
+                let i = 0;
+
+                function typeChar() {
+                    if (cancelTypingFlag) return;
+                    if (i < finalProcessedText.length) {
+                        chatInput.value += finalProcessedText.charAt(i);
+                        chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        
+                        let textUpToI = finalProcessedText.substring(0, i);
+                        let currentWordIndex = (textUpToI.match(/ /g) || []).length;
+                        
+                        let speedModifier = 100;
+                        if (currentWordIndex < 30) {
+                            speedModifier = settings.wordSpeedModifiers[currentWordIndex] || 100;
+                        }
+
+                        i++;
+                        
+                        if (i === finalProcessedText.length) {
+                            chatInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+                            chatInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+                            
+                            currentMsgIndex++;
+                            if (currentMsgIndex < msgsQueue.length) {
+                                setTimeout(typeNextMessage, 500); 
+                            } else {
+                                isTyping = false;
+                                sendAction({ type: 'QUEUE_FINISHED' });
+                            }
+                            return;
+                        }
+
+                        let elapsed = performance.now() - startTime;
+                        let remainingTimeMs = totalTargetTimeMs - elapsed;
+                        let remainingChars = finalProcessedText.length - i;
+                        let nextDelay = 10;
+
+                        if (remainingTimeMs > 0 && remainingChars > 0) {
+                            let avgDelay = remainingTimeMs / remainingChars;
+                            let jitter = (Math.random() * 0.6) - 0.3; 
+                            nextDelay = avgDelay * (1 + jitter);
+                        }
+
+                        if (speedModifier > 0) { nextDelay = nextDelay * (100 / speedModifier); }
+                        nextDelay = Math.max(5, nextDelay);
+                        setTimeout(typeChar, nextDelay);
+                    }
+                }
+                typeChar();
+            }
+        };
+        document.head.appendChild(script);
+    })();
